@@ -1,11 +1,7 @@
 -- =====================================================================
 -- PREGUNTA 1. ¿Cómo evolucionan los ingresos, las órdenes y el ticket
 -- promedio mes a mes, y en qué meses crece o cae el negocio?
--- =====================================================================
-
--- =====================================================================
--- HALLAZGOS: 
--- RECOMENDACIONES:
+-- ¿ese crecimiento viene de clientes nuevos o de clientes que vuelven?
 -- =====================================================================
 
 with ventas_por_mes as (
@@ -31,3 +27,21 @@ select
   round(sum(ingresos) over(partition by extract(year from mes) order by mes), 2) as ingresos_acumulados_anio
 from ventas_por_mes
 order by mes;
+
+
+with primera_compra as (
+  select user_id, MIN(DATE_TRUNC(DATE(created_at), MONTH)) as mes_primera_compra
+  from `thelook.order_items`
+  where status not in ('Cancelled', 'Returned')
+  group by user_id
+)
+select
+  date_trunc(date(oi.created_at), MONTH) as mes,
+  round(sum(if(date_trunc(date(oi.created_at), MONTH) = p.mes_primera_compra, oi.sale_price, 0)), 2) as ingresos_nuevos,
+  round(sum(if(date_trunc(date(oi.created_at), MONTH) > p.mes_primera_compra, oi.sale_price, 0)), 2) as ingresos_recurrentes
+from `thelook.order_items` oi join primera_compra p using (user_id)
+where status not in ('Cancelled', 'Returned')
+group by mes
+order by mes;
+
+
